@@ -265,16 +265,42 @@ main{flex:1;overflow:hidden;position:relative;}
   background:var(--black);color:var(--white);
   padding:1px 4px;border-radius:3px;
 }
-.detail-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:1.5rem;}
+.detail-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:1.5rem;align-items:center;}
 .detail-tag{
-  font-size:11px;padding:4px 12px;
+  font-size:11px;padding:4px 10px;
   border:0.5px solid var(--black);border-radius:100px;
-  cursor:pointer;transition:all .12s;
+  display:inline-flex;align-items:center;gap:5px;
 }
-.detail-tag:hover{background:var(--g100);}
-.detail-tag-edit{
-  font-size:10px;color:var(--g500);
-  margin-top:.75rem;letter-spacing:.04em;
+.detail-tag-rm{font-size:14px;line-height:1;opacity:.4;cursor:pointer;}
+.detail-tag-rm:hover{opacity:1;}
+.detail-tag-add{
+  display:inline-flex;align-items:center;gap:4px;
+  border:0.5px dashed var(--g300);border-radius:100px;
+  padding:4px 10px;
+}
+.detail-tag-input{
+  border:none;outline:none;background:transparent;
+  font-family:'DM Mono',monospace;font-size:11px;color:var(--black);width:52px;
+}
+.detail-tag-input::placeholder{color:var(--g300);}
+.detail-tag-confirm{font-size:14px;color:var(--g500);cursor:pointer;line-height:1;}
+.detail-tag-confirm:hover{color:var(--black);}
+.detail-tag-edit{font-size:10px;color:var(--g500);margin-top:.75rem;letter-spacing:.04em;}
+.detail-edit-btn{
+  background:none;border:0.5px solid var(--g300);
+  border-radius:100px;padding:4px 12px;
+  font-family:'DM Mono',monospace;font-size:11px;
+  color:var(--g500);cursor:pointer;transition:all .12s;
+}
+.detail-edit-btn:hover{border-color:var(--black);color:var(--black);}
+.detail-edit-btn.saving{background:var(--black);color:var(--white);border-color:var(--black);}
+.detail-edit-area{
+  width:100%;min-height:120px;border:none;
+  border-bottom:0.5px solid var(--g300);
+  background:transparent;outline:none;resize:none;
+  font-family:'DM Serif Display',serif;
+  font-size:1.05rem;line-height:1.8;color:var(--black);
+  margin-bottom:.5rem;
 }
 
 /* ── TOAST ── */
@@ -353,8 +379,12 @@ main{flex:1;overflow:hidden;position:relative;}
   <div class="panel-sheet">
     <button class="panel-close" onclick="closePanel('detail-panel')">×</button>
     <div class="panel-handle"></div>
-    <div class="detail-date" id="d-date"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <div class="detail-date" id="d-date" style="margin-bottom:0"></div>
+      <button class="detail-edit-btn" id="d-edit-btn" onclick="toggleEditMode()">수정</button>
+    </div>
     <div class="detail-body" id="d-body"></div>
+    <textarea class="detail-edit-area" id="d-edit-area" style="display:none"></textarea>
     <div class="detail-tags" id="d-tags"></div>
     <div class="detail-tag-edit" id="d-tag-hint"></div>
   </div>
@@ -439,30 +469,27 @@ async function extractKeywords(entry){
     const res = await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514', max_tokens:150,
-        system:`일기에서 핵심 키워드를 3~5개 추출해. 아래 3가지 기준에서만 뽑아:
+        model:'claude-sonnet-4-20250514', max_tokens:100,
+        system:`일기에서 핵심 키워드를 최대 3개만 추출해. 아래 3가지 기준에서만 뽑아:
 1. 감정 (불안, 설렘, 외로움, 무기력 등)
 2. 관계·대상 (엄마, 팀장, 친구 등 고유한 관계)
 3. 주제·영역 (커리어, 돈, 건강 등)
-반드시 JSON 배열만 반환. 예: ["불안","커리어"]. 마크다운 없이.`,
+반드시 JSON 배열만 반환. 최대 3개. 예: ["불안","커리어"]. 마크다운 없이.`,
         messages:[{role:'user',content:entry.text}]
       })
     });
     const data = await res.json();
     const raw = data.content[0].text.trim().replace(/```json|```/g,'').trim();
-    const keywords = JSON.parse(raw);
-    // update entry
+    const keywords = JSON.parse(raw).slice(0,3);
     const idx = entries.findIndex(e=>e.id===entry.id);
     if(idx!==-1){ entries[idx].keywords=keywords; save(); }
-    // show tag flash if still on home
     if(document.getElementById('view-home').classList.contains('active')){
       showTagFlash(keywords);
     }
   }catch(e){
-    // fallback
     const words = entry.text.match(/[가-힣]{2,4}/g)||[];
     const freq = {}; words.forEach(w=>freq[w]=(freq[w]||0)+1);
-    const kws = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,4).map(e=>e[0]);
+    const kws = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e=>e[0]);
     const idx = entries.findIndex(en=>en.id===entry.id);
     if(idx!==-1){ entries[idx].keywords=kws; save(); }
     if(document.getElementById('view-home').classList.contains('active')) showTagFlash(kws);
@@ -711,15 +738,109 @@ function openCooc(a,b,idsStr){
   document.getElementById('kw-panel').classList.add('open');
 }
 
+let currentDetailId = null;
+
 function openDetail(id){
   const e=entries.find(e=>String(e.id)===String(id)); if(!e) return;
+  currentDetailId=id;
+  // reset edit mode
+  document.getElementById('d-body').style.display='block';
+  document.getElementById('d-edit-area').style.display='none';
+  document.getElementById('d-edit-btn').textContent='수정';
+  document.getElementById('d-edit-btn').classList.remove('saving');
+
   document.getElementById('d-date').textContent=e.date;
   let body=e.text;
   (e.keywords||[]).forEach(k=>{body=body.replace(new RegExp(k,'g'),`<mark>${k}</mark>`);});
   document.getElementById('d-body').innerHTML=body;
-  document.getElementById('d-tags').innerHTML=(e.keywords||[]).map(k=>`<span class="detail-tag">${k}</span>`).join('');
-  document.getElementById('d-tag-hint').textContent=(e.keywords||[]).length?'키워드를 탭해서 수정할 수 있어요':'';
+  renderDetailTags(id);
   document.getElementById('detail-panel').classList.add('open');
+}
+
+function toggleEditMode(){
+  const body=document.getElementById('d-body');
+  const area=document.getElementById('d-edit-area');
+  const btn=document.getElementById('d-edit-btn');
+  const isEditing=area.style.display!=='none';
+
+  if(!isEditing){
+    // 편집 모드 진입
+    const e=entries.find(e=>String(e.id)===String(currentDetailId));
+    area.value=e.text;
+    body.style.display='none';
+    area.style.display='block';
+    area.focus();
+    btn.textContent='저장';
+    btn.classList.add('saving');
+  } else {
+    // 저장
+    const newText=area.value.trim();
+    if(!newText){showToast('내용을 입력해주세요');return;}
+    const i=entries.findIndex(e=>String(e.id)===String(currentDetailId));
+    if(i===-1) return;
+    entries[i].text=newText;
+    save();
+    // 하이라이트 다시 적용
+    let body2=newText;
+    (entries[i].keywords||[]).forEach(k=>{body2=body2.replace(new RegExp(k,'g'),`<mark>${k}</mark>`);});
+    body.innerHTML=body2;
+    body.style.display='block';
+    area.style.display='none';
+    btn.textContent='수정';
+    btn.classList.remove('saving');
+    renderEntries();
+    showToast('수정됐어요');
+  }
+}
+
+function renderDetailTags(id){
+  const e=entries.find(e=>String(e.id)===String(id)); if(!e) return;
+  const kws=e.keywords||[];
+  const canAdd=kws.length<3;
+  document.getElementById('d-tags').innerHTML=`
+    ${kws.map((k,i)=>`
+      <span class="detail-tag">
+        ${k}
+        <span class="detail-tag-rm" onclick="removeKeyword('${id}',${i})">×</span>
+      </span>`).join('')}
+    ${canAdd?`
+      <span class="detail-tag-add" id="tag-add-wrap-${id}">
+        <input class="detail-tag-input" id="tag-input-${id}" placeholder="추가..." maxlength="6"
+          onkeydown="if(event.key==='Enter') addKeyword('${id}')"
+          style="width:52px">
+        <span class="detail-tag-confirm" onclick="addKeyword('${id}')">+</span>
+      </span>`:
+      `<span style="font-size:10px;color:var(--g500);">최대 3개</span>`}
+  `;
+}
+
+function removeKeyword(id,idx){
+  const i=entries.findIndex(e=>String(e.id)===String(id));
+  if(i===-1) return;
+  entries[i].keywords.splice(idx,1);
+  save();
+  renderDetailTags(id);
+  // refresh body highlight
+  let body=entries[i].text;
+  (entries[i].keywords||[]).forEach(k=>{body=body.replace(new RegExp(k,'g'),`<mark>${k}</mark>`);});
+  document.getElementById('d-body').innerHTML=body;
+}
+
+function addKeyword(id){
+  const inp=document.getElementById('tag-input-'+id);
+  if(!inp) return;
+  const val=inp.value.trim();
+  if(!val) return;
+  const i=entries.findIndex(e=>String(e.id)===String(id));
+  if(i===-1) return;
+  if(!entries[i].keywords) entries[i].keywords=[];
+  if(entries[i].keywords.length>=3){showToast('최대 3개까지만 가능해요');return;}
+  entries[i].keywords.push(val);
+  save();
+  renderDetailTags(id);
+  let body=entries[i].text;
+  (entries[i].keywords||[]).forEach(k=>{body=body.replace(new RegExp(k,'g'),`<mark>${k}</mark>`);});
+  document.getElementById('d-body').innerHTML=body;
 }
 
 function closePanel(id){ document.getElementById(id).classList.remove('open'); }
@@ -737,6 +858,7 @@ renderEntries();
 
 window.openNode=openNode; window.openCooc=openCooc; window.openDetail=openDetail;
 window.pickDate=pickDate; window.moveMonth=moveMonth; window.deleteEntry=deleteEntry;
+window.removeKeyword=removeKeyword; window.addKeyword=addKeyword; window.toggleEditMode=toggleEditMode;
 
 // ── PWA ──
 if('serviceWorker' in navigator){
