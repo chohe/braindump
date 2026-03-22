@@ -296,11 +296,11 @@ main{flex:1;overflow:hidden;position:relative;}
   <div class="view active" id="view-home">
     <div class="home-logo">brain dump</div>
     <div class="home-input-area">
-      <textarea id="home-textarea" placeholder="지금 뭔 생각해?" autofocus></textarea>
+      <textarea id="home-textarea" placeholder="지금 무슨 생각 해?" autofocus></textarea>
       <div id="tag-flash-area"></div>
     </div>
     <div class="home-footer">
-      <span class="home-footer-hint" id="home-hint">엔터로 저장</span>
+      <span class="home-footer-hint" id="home-hint">Shift+Enter 또는 → 로 저장</span>
       <button class="home-save-btn" onclick="saveEntry()">
         <svg viewBox="0 0 14 14" fill="none"><path d="M2 7H12M7 2L12 7L7 12" stroke="#f8f8f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
@@ -413,7 +413,7 @@ function switchView(v){
 
 // ── HOME ──
 document.getElementById('home-textarea').addEventListener('keydown', e=>{
-  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); saveEntry(); }
+  if(e.key==='Enter' && e.shiftKey){ e.preventDefault(); saveEntry(); }
 });
 
 async function saveEntry(){
@@ -428,7 +428,7 @@ async function saveEntry(){
 
   ta.value='';
   document.getElementById('home-hint').textContent='저장됐어요';
-  setTimeout(()=>{ document.getElementById('home-hint').textContent='엔터로 저장'; },1500);
+  setTimeout(()=>{ document.getElementById('home-hint').textContent='Shift+Enter 또는 → 로 저장'; },1500);
 
   // background AI keyword extraction
   extractKeywords(entry);
