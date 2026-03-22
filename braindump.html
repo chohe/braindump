@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Brain Dump">
+<meta name="theme-color" content="#f8f8f6">
+<title>Brain Dump</title>
+<link rel="manifest" href="data:application/json;charset=utf-8,%7B%22name%22%3A%22Brain%20Dump%22%2C%22short_name%22%3A%22Brain%20Dump%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f8f8f6%22%2C%22theme_color%22%3A%22%23f8f8f6%22%2C%22orientation%22%3A%22portrait%22%7D">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --black:#0a0a0a; --white:#f8f8f6;
+  --g100:#ececea; --g300:#c8c8c4; --g500:#8a8a86; --g700:#4a4a48;
+}
+html,body{height:100%;overflow:hidden;}
+body{
+  background:var(--white); color:var(--black);
+  font-family:'DM Mono',monospace; font-size:14px;
+  display:flex; flex-direction:column;
+}
+
+/* ── BOTTOM NAV ── */
+.bottom-nav{
+  display:flex; border-top:0.5px solid var(--g100);
+  padding:10px 0 max(16px, env(safe-area-inset-bottom));
+  flex-shrink:0;
+}
+.nav-item{
+  flex:1; display:flex; flex-direction:column;
+  align-items:center; gap:4px; cursor:pointer;
+  border:none; background:none; padding:4px 0;
+}
+.nav-item svg{width:20px;height:20px;}
+.nav-item svg path, .nav-item svg circle, .nav-item svg rect{
+  stroke:var(--g300); transition:stroke .15s;
+}
+.nav-item.active svg path,
+.nav-item.active svg circle,
+.nav-item.active svg rect{ stroke:var(--black); }
+.nav-label{font-size:10px;letter-spacing:.05em;color:var(--g300);transition:color .15s;}
+.nav-item.active .nav-label{color:var(--black);}
+
+/* ── VIEWS ── */
+main{flex:1;overflow:hidden;position:relative;}
+.view{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  opacity:0;pointer-events:none;transition:opacity .18s;
+}
+.view.active{opacity:1;pointer-events:all;}
+
+/* ── HOME ── */
+#view-home{padding:2.5rem 2rem 1.5rem;}
+.home-logo{
+  font-family:'DM Serif Display',serif;
+  font-style:italic; font-size:13px;
+  color:var(--g300); letter-spacing:.1em;
+  margin-bottom:3rem;
+}
+.home-input-area{flex:1;display:flex;flex-direction:column;}
+#home-textarea{
+  flex:1; width:100%; background:transparent;
+  border:none; outline:none; resize:none;
+  font-family:'DM Serif Display',serif;
+  font-size:1.25rem; line-height:1.75;
+  color:var(--black); caret-color:var(--black);
+}
+#home-textarea::placeholder{color:var(--g300);}
+.home-footer{
+  display:flex; justify-content:space-between;
+  align-items:center; padding-top:1rem;
+  border-top:0.5px solid var(--g100); margin-top:1rem;
+}
+.home-footer-hint{font-size:11px;color:var(--g300);letter-spacing:.04em;}
+.home-save-btn{
+  width:36px;height:36px;border-radius:50%;
+  background:var(--black);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .15s;
+}
+.home-save-btn:hover{opacity:.8;}
+.home-save-btn svg{width:14px;height:14px;}
+
+/* saved tag flash */
+.tag-flash{
+  display:flex;flex-wrap:wrap;gap:6px;
+  margin-top:1rem;
+  animation:fadeIn .3s ease;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.tag-pill{
+  font-size:11px;padding:4px 12px;
+  border:0.5px solid var(--black);
+  border-radius:100px; cursor:pointer;
+  transition:all .12s;
+}
+.tag-pill:hover{background:var(--g100);}
+.tag-edit-hint{font-size:10px;color:var(--g500);margin-top:.5rem;width:100%;}
+
+/* ── MAP ── */
+#view-map{padding:2rem;align-items:center;justify-content:center;position:relative;}
+#map-canvas{width:100%;max-width:660px;}
+.map-empty{font-size:13px;color:var(--g500);text-align:center;}
+.map-hint{
+  position:absolute;bottom:1.5rem;
+  font-size:11px;color:var(--g300);letter-spacing:.06em;
+}
+
+/* ── LIST ── */
+#view-list{overflow:hidden;}
+.list-inner{
+  flex:1;overflow-y:auto;
+  padding:2rem 2rem 0;
+  max-width:640px;margin:0 auto;width:100%;
+}
+
+.date-toggle{
+  display:inline-flex;align-items:center;gap:8px;
+  cursor:pointer;margin-bottom:1.5rem;
+  user-select:none;
+}
+.date-toggle-text{
+  font-family:'DM Serif Display',serif;
+  font-size:1.3rem;color:var(--black);
+}
+.date-toggle-caret{
+  font-size:11px;color:var(--g500);
+  transition:transform .2s;
+  font-family:'DM Mono',monospace;
+}
+.date-toggle-caret.open{transform:rotate(180deg);}
+
+.cal-wrap{
+  overflow:hidden;max-height:0;
+  transition:max-height .28s ease;
+  margin-bottom:0;
+}
+.cal-wrap.open{max-height:260px;margin-bottom:1.5rem;}
+.cal-nav-row{
+  display:flex;align-items:center;
+  justify-content:space-between;margin-bottom:.75rem;
+}
+.cal-nav-btn{
+  background:none;border:none;cursor:pointer;
+  font-size:16px;color:var(--g500);padding:2px 8px;
+  font-family:'DM Mono',monospace;line-height:1;
+}
+.cal-nav-btn:hover{color:var(--black);}
+.cal-nav-label{font-size:12px;color:var(--black);letter-spacing:.04em;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.cal-dow{
+  text-align:center;font-size:10px;
+  color:var(--g500);padding:2px 0 8px;
+}
+.cal-day{
+  aspect-ratio:1;display:flex;
+  align-items:center;justify-content:center;
+  font-size:12px;border-radius:50%;
+  color:var(--g300);font-weight:300;
+  transition:all .1s;
+}
+.cal-day.has{color:var(--black);font-weight:700;cursor:pointer;}
+.cal-day.has:hover{background:var(--g100);}
+.cal-day.sel{background:var(--black)!important;color:var(--white)!important;}
+.cal-day.today{border:0.5px solid var(--g300);color:var(--black);}
+
+.list-section-label{
+  font-size:11px;color:var(--g500);
+  letter-spacing:.08em;margin-bottom:1rem;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.list-clear-btn{
+  background:none;border:none;font-size:11px;
+  color:var(--g500);cursor:pointer;
+  font-family:'DM Mono',monospace;text-decoration:underline;
+}
+.list-clear-btn:hover{color:var(--black);}
+.entry-row{
+  display:flex;align-items:flex-start;gap:1rem;
+  padding:.85rem 0;border-bottom:0.5px solid var(--g100);
+  cursor:pointer;transition:padding .12s;
+}
+.entry-row:hover{padding-left:6px;}
+.entry-date{font-size:11px;color:var(--g500);min-width:44px;padding-top:2px;}
+.entry-right{flex:1;}
+.entry-preview{
+  font-family:'DM Serif Display',serif;
+  font-size:1rem;color:var(--black);line-height:1.5;
+}
+.entry-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
+.entry-tag{
+  font-size:10px;padding:2px 8px;
+  border:0.5px solid var(--g300);
+  border-radius:100px;color:var(--g500);
+}
+.list-empty{
+  text-align:center;color:var(--g500);
+  font-size:13px;margin-top:3rem;line-height:2;
+}
+
+/* ── PANELS ── */
+.panel-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(10,10,10,.4);z-index:100;
+  align-items:flex-end;justify-content:center;
+}
+.panel-overlay.open{display:flex;}
+.panel-sheet{
+  background:var(--white);border-radius:20px 20px 0 0;
+  width:100%;max-width:640px;max-height:80vh;
+  overflow-y:auto;padding:2rem;
+  transform:translateY(100%);
+  transition:transform .3s cubic-bezier(.32,.72,0,1);
+}
+.panel-overlay.open .panel-sheet{transform:translateY(0);}
+.panel-handle{
+  width:36px;height:4px;background:var(--g300);
+  border-radius:2px;margin:0 auto 1.5rem;
+}
+.panel-close{
+  float:right;background:none;border:none;
+  font-size:20px;cursor:pointer;color:var(--g500);line-height:1;
+}
+.panel-title{
+  font-family:'DM Serif Display',serif;
+  font-size:1.4rem;margin-bottom:.25rem;
+}
+.panel-sub{font-size:11px;color:var(--g500);letter-spacing:.06em;margin-bottom:1.5rem;}
+.panel-date-row{
+  display:flex;align-items:baseline;gap:1rem;
+  padding:.75rem 0;border-bottom:0.5px solid var(--g100);
+  cursor:pointer;transition:padding .12s;
+}
+.panel-date-row:hover{padding-left:6px;}
+.panel-date-label{font-size:11px;color:var(--g500);min-width:80px;}
+.panel-date-preview{
+  font-family:'DM Serif Display',serif;
+  font-size:.95rem;flex:1;
+}
+
+/* detail */
+.detail-date{font-size:11px;color:var(--g500);letter-spacing:.08em;margin-bottom:1rem;}
+.detail-body{
+  font-family:'DM Serif Display',serif;
+  font-size:1.05rem;line-height:1.8;
+}
+.detail-body mark{
+  background:var(--black);color:var(--white);
+  padding:1px 4px;border-radius:3px;
+}
+.detail-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:1.5rem;}
+.detail-tag{
+  font-size:11px;padding:4px 12px;
+  border:0.5px solid var(--black);border-radius:100px;
+  cursor:pointer;transition:all .12s;
+}
+.detail-tag:hover{background:var(--g100);}
+.detail-tag-edit{
+  font-size:10px;color:var(--g500);
+  margin-top:.75rem;letter-spacing:.04em;
+}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:6rem;left:50%;
+  transform:translateX(-50%) translateY(10px);
+  background:var(--black);color:var(--white);
+  padding:8px 20px;border-radius:100px;
+  font-size:12px;opacity:0;
+  transition:all .25s;pointer-events:none;z-index:200;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<main>
+  <!-- HOME -->
+  <div class="view active" id="view-home">
+    <div class="home-logo">brain dump</div>
+    <div class="home-input-area">
+      <textarea id="home-textarea" placeholder="지금 뭔 생각해?" autofocus></textarea>
+      <div id="tag-flash-area"></div>
+    </div>
+    <div class="home-footer">
+      <span class="home-footer-hint" id="home-hint">엔터로 저장</span>
+      <button class="home-save-btn" onclick="saveEntry()">
+        <svg viewBox="0 0 14 14" fill="none"><path d="M2 7H12M7 2L12 7L7 12" stroke="#f8f8f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div class="view" id="view-map">
+    <svg id="map-canvas" viewBox="0 0 660 420" xmlns="http://www.w3.org/2000/svg"></svg>
+    <p class="map-hint">버블 클릭 → 기록  ·  선 클릭 → 함께 나온 기록</p>
+  </div>
+
+  <!-- LIST -->
+  <div class="view" id="view-list">
+    <div class="list-inner">
+      <div class="date-toggle" onclick="toggleCal()">
+        <span class="date-toggle-text" id="date-toggle-label"></span>
+        <span class="date-toggle-caret" id="cal-caret">▾</span>
+      </div>
+      <div class="cal-wrap" id="cal-wrap">
+        <div class="cal-nav-row">
+          <button class="cal-nav-btn" onclick="event.stopPropagation();moveMonth(-1)">←</button>
+          <span class="cal-nav-label" id="cal-nav-label"></span>
+          <button class="cal-nav-btn" onclick="event.stopPropagation();moveMonth(1)">→</button>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+      <div class="list-section-label">
+        <span id="list-label"></span>
+        <button class="list-clear-btn" id="list-clear" style="display:none" onclick="clearFilter()">전체 보기</button>
+      </div>
+      <div id="entry-list"></div>
+    </div>
+  </div>
+</main>
+
+<!-- KW PANEL -->
+<div class="panel-overlay" id="kw-panel" onclick="bgClose(event,'kw-panel')">
+  <div class="panel-sheet">
+    <button class="panel-close" onclick="closePanel('kw-panel')">×</button>
+    <div class="panel-handle"></div>
+    <div class="panel-title" id="kw-title"></div>
+    <div class="panel-sub" id="kw-sub"></div>
+    <div id="kw-rows"></div>
+  </div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="panel-overlay" id="detail-panel" onclick="bgClose(event,'detail-panel')">
+  <div class="panel-sheet">
+    <button class="panel-close" onclick="closePanel('detail-panel')">×</button>
+    <div class="panel-handle"></div>
+    <div class="detail-date" id="d-date"></div>
+    <div class="detail-body" id="d-body"></div>
+    <div class="detail-tags" id="d-tags"></div>
+    <div class="detail-tag-edit" id="d-tag-hint"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<nav class="bottom-nav">
+  <button class="nav-item active" id="tab-home" onclick="switchView('home')">
+    <svg viewBox="0 0 20 20" fill="none">
+      <path d="M3 10L10 3L17 10" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M6 8V17H14V8" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="nav-label">홈</span>
+  </button>
+  <button class="nav-item" id="tab-map" onclick="switchView('map')">
+    <svg viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="3" stroke-width="1.2"/>
+      <circle cx="10" cy="10" r="8" stroke-width="1.2" stroke-dasharray="2.5 2"/>
+    </svg>
+    <span class="nav-label">MAP</span>
+  </button>
+  <button class="nav-item" id="tab-list" onclick="switchView('list')">
+    <svg viewBox="0 0 20 20" fill="none">
+      <rect x="3" y="3" width="14" height="14" rx="2" stroke-width="1.2"/>
+      <path d="M7 8H13M7 11H11" stroke-width="1.2" stroke-linecap="round"/>
+    </svg>
+    <span class="nav-label">LIST</span>
+  </button>
+</nav>
+
+<script>
+// ── STATE ──
+let entries = JSON.parse(localStorage.getItem('ml4')||'null') || [
+  {id:1,date:'2026-03-10',text:'오늘도 커리어 때문에 머리가 복잡했다. 이직이 맞는 선택인지 모르겠고 불안한 마음에 친구한테 연락했다.',keywords:['커리어','불안','관계']},
+  {id:2,date:'2026-03-13',text:'오랜만에 운동했다. 하기 싫었는데 나가고 나니 기분이 훨씬 나아졌다.',keywords:['건강']},
+  {id:3,date:'2026-03-15',text:'내일 발표가 있다. 준비는 다 했는데 이상하게 불안하다. 돈도 좀 모아야 하는데.',keywords:['불안','돈','커리어']},
+  {id:4,date:'2026-03-17',text:'친구랑 약속이 취소됐다. 이해는 하는데 조금 서운했다.',keywords:['관계','불안']},
+  {id:5,date:'2026-03-19',text:'어젯밤에 또 잠을 못 잤다. 이유를 모르는 불안이 제일 무섭다.',keywords:['불안','커리어','돈']},
+];
+let calOpen=false, selDate=null;
+let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
+
+function save(){ localStorage.setItem('ml4',JSON.stringify(entries)); }
+
+// ── NAV ──
+function switchView(v){
+  ['home','map','list'].forEach(n=>{
+    document.getElementById('view-'+n).classList.toggle('active',n===v);
+    document.getElementById('tab-'+n).classList.toggle('active',n===v);
+  });
+  if(v==='map') renderMap();
+  if(v==='list'){ updateDateLabel(); renderEntries(); }
+  if(v==='home') document.getElementById('home-textarea').focus();
+}
+
+// ── HOME ──
+document.getElementById('home-textarea').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); saveEntry(); }
+});
+
+async function saveEntry(){
+  const ta = document.getElementById('home-textarea');
+  const text = ta.value.trim();
+  if(!text){ ta.focus(); return; }
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  const entry = {id:Date.now(), date:dateStr, text, keywords:[]};
+  entries.unshift(entry);
+  save();
+
+  ta.value='';
+  document.getElementById('home-hint').textContent='저장됐어요';
+  setTimeout(()=>{ document.getElementById('home-hint').textContent='엔터로 저장'; },1500);
+
+  // background AI keyword extraction
+  extractKeywords(entry);
+}
+
+async function extractKeywords(entry){
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:150,
+        system:`일기에서 핵심 키워드를 3~5개 추출해. 아래 3가지 기준에서만 뽑아:
+1. 감정 (불안, 설렘, 외로움, 무기력 등)
+2. 관계·대상 (엄마, 팀장, 친구 등 고유한 관계)
+3. 주제·영역 (커리어, 돈, 건강 등)
+반드시 JSON 배열만 반환. 예: ["불안","커리어"]. 마크다운 없이.`,
+        messages:[{role:'user',content:entry.text}]
+      })
+    });
+    const data = await res.json();
+    const raw = data.content[0].text.trim().replace(/```json|```/g,'').trim();
+    const keywords = JSON.parse(raw);
+    // update entry
+    const idx = entries.findIndex(e=>e.id===entry.id);
+    if(idx!==-1){ entries[idx].keywords=keywords; save(); }
+    // show tag flash if still on home
+    if(document.getElementById('view-home').classList.contains('active')){
+      showTagFlash(keywords);
+    }
+  }catch(e){
+    // fallback
+    const words = entry.text.match(/[가-힣]{2,4}/g)||[];
+    const freq = {}; words.forEach(w=>freq[w]=(freq[w]||0)+1);
+    const kws = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,4).map(e=>e[0]);
+    const idx = entries.findIndex(en=>en.id===entry.id);
+    if(idx!==-1){ entries[idx].keywords=kws; save(); }
+    if(document.getElementById('view-home').classList.contains('active')) showTagFlash(kws);
+  }
+}
+
+function showTagFlash(keywords){
+  const area = document.getElementById('tag-flash-area');
+  area.innerHTML = `
+    <div class="tag-flash">
+      ${keywords.map(k=>`<span class="tag-pill">${k}</span>`).join('')}
+      <span class="tag-edit-hint">키워드 탭해서 수정 가능해요</span>
+    </div>`;
+  setTimeout(()=>{ area.innerHTML=''; }, 4000);
+}
+
+// ── LIST ──
+function fmt(y,m){ return `${y}.${String(m+1).padStart(2,'0')}`; }
+
+function updateDateLabel(){
+  document.getElementById('date-toggle-label').textContent =
+    selDate ? selDate.slice(0,7).replace('-','.') : fmt(calYear,calMonth);
+  document.getElementById('cal-nav-label').textContent = fmt(calYear,calMonth);
+}
+
+function toggleCal(){
+  calOpen=!calOpen;
+  document.getElementById('cal-wrap').classList.toggle('open',calOpen);
+  document.getElementById('cal-caret').classList.toggle('open',calOpen);
+  if(calOpen) renderCal();
+}
+
+function moveMonth(dir){
+  calMonth+=dir;
+  if(calMonth<0){calMonth=11;calYear--;}
+  if(calMonth>11){calMonth=0;calYear++;}
+  selDate=null;
+  updateDateLabel();
+  renderCal();
+  renderEntries();
+}
+
+function renderCal(){
+  updateDateLabel();
+  const hasDates=new Set(entries.map(e=>e.date));
+  const today=new Date().toISOString().split('T')[0];
+  const first=new Date(calYear,calMonth,1).getDay();
+  const dim=new Date(calYear,calMonth+1,0).getDate();
+  const dows=['S','M','T','W','T','F','S'];
+  let html=dows.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  for(let i=0;i<first;i++) html+=`<div class="cal-day"></div>`;
+  for(let d=1;d<=dim;d++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const has=hasDates.has(ds), isSel=ds===selDate, isToday=ds===today;
+    const cls=['cal-day',has?'has':'',isSel?'sel':'',isToday?'today':''].filter(Boolean).join(' ');
+    html+=`<div class="${cls}"${has?` onclick="pickDate('${ds}')"`:''}>${d}</div>`;
+  }
+  document.getElementById('cal-grid').innerHTML=html;
+}
+
+function pickDate(d){
+  selDate=selDate===d?null:d;
+  updateDateLabel();
+  renderCal();
+  renderEntries();
+}
+
+function clearFilter(){
+  selDate=null; calOpen=false;
+  document.getElementById('cal-wrap').classList.remove('open');
+  document.getElementById('cal-caret').classList.remove('open');
+  updateDateLabel();
+  renderEntries();
+}
+
+function renderEntries(){
+  const ym=`${calYear}-${String(calMonth+1).padStart(2,'0')}`;
+  const filtered=selDate
+    ? entries.filter(e=>e.date===selDate)
+    : entries.filter(e=>e.date.startsWith(ym));
+
+  document.getElementById('list-label').textContent =
+    selDate ? `${selDate}` : `${fmt(calYear,calMonth)} · ${filtered.length}개`;
+  document.getElementById('list-clear').style.display=selDate?'inline':'none';
+
+  if(!filtered.length){
+    document.getElementById('entry-list').innerHTML=`<div class="list-empty">기록이 없어요</div>`;
+    return;
+  }
+  document.getElementById('entry-list').innerHTML=filtered.map(e=>`
+    <div class="entry-row" onclick="openDetail('${e.id}')">
+      <span class="entry-date">${e.date.slice(5).replace('-','.')}</span>
+      <div class="entry-right">
+        <div class="entry-preview">${e.text.slice(0,40)}${e.text.length>40?'...':''}</div>
+        <div class="entry-tags">${(e.keywords||[]).slice(0,3).map(k=>`<span class="entry-tag">${k}</span>`).join('')}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── MAP ──
+function getStats(){
+  const nodes={}, cooc={};
+  entries.forEach(e=>{
+    (e.keywords||[]).forEach(k=>{
+      if(!nodes[k]) nodes[k]={count:0,entries:[]};
+      nodes[k].count++; nodes[k].entries.push(e);
+    });
+    const kws=e.keywords||[];
+    for(let i=0;i<kws.length;i++)
+      for(let j=i+1;j<kws.length;j++){
+        const key=[kws[i],kws[j]].sort().join('||');
+        if(!cooc[key]) cooc[key]={a:kws[i],b:kws[j],count:0,entries:[]};
+        cooc[key].count++; cooc[key].entries.push(e);
+      }
+  });
+  return{nodes,cooc};
+}
+
+function renderMap(){
+  const svg=document.getElementById('map-canvas');
+  const{nodes,cooc}=getStats();
+  const keys=Object.keys(nodes).sort((a,b)=>nodes[b].count-nodes[a].count);
+  if(!keys.length){
+    svg.innerHTML=`<text x="330" y="210" text-anchor="middle" font-family="DM Mono,monospace" font-size="13" fill="#8a8a86">홈에서 첫 생각을 던져보세요</text>`;
+    return;
+  }
+  const max=nodes[keys[0]].count, cx=330, cy=210;
+  const pos=placeNodes(keys.length,cx,cy);
+  const pm={};keys.forEach((k,i)=>pm[k]=pos[i]);
+  let html='';
+
+  Object.values(cooc).forEach(c=>{
+    const pa=pm[c.a],pb=pm[c.b]; if(!pa||!pb) return;
+    const w=(0.8+(c.count/max)*5).toFixed(1);
+    const op=(0.05+c.count*0.06).toFixed(2);
+    const ids=c.entries.map(e=>e.id).join(',');
+    html+=`<line x1="${pa.x.toFixed(1)}" y1="${pa.y.toFixed(1)}" x2="${pb.x.toFixed(1)}" y2="${pb.y.toFixed(1)}" stroke="#0a0a0a" stroke-width="${w}" opacity="${op}" stroke-linecap="round"/>`;
+    html+=`<line x1="${pa.x.toFixed(1)}" y1="${pa.y.toFixed(1)}" x2="${pb.x.toFixed(1)}" y2="${pb.y.toFixed(1)}" stroke="transparent" stroke-width="18" style="cursor:pointer" onclick="openCooc('${c.a}','${c.b}','${ids}')"/>`;
+  });
+
+  html+=`<circle cx="${cx}" cy="${cy}" r="26" fill="#0a0a0a"/>
+  <text x="${cx}" y="${cy-4}" text-anchor="middle" font-family="DM Serif Display,serif" font-size="12" fill="#f8f8f6">나의</text>
+  <text x="${cx}" y="${cy+11}" text-anchor="middle" font-family="DM Serif Display,serif" font-size="12" fill="#f8f8f6">생각들</text>`;
+
+  keys.forEach((k,i)=>{
+    const p=pos[i];
+    const r=(20+(nodes[k].count/max)*28).toFixed(0);
+    const fs=r<28?11:r<36?12:13;
+    const ids=nodes[k].entries.map(e=>e.id).join(',');
+    html+=`<g style="cursor:pointer" onclick="openNode('${k}','${ids}')">
+      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="#f8f8f6" stroke="#0a0a0a" stroke-width="1"/>
+      <text x="${p.x.toFixed(1)}" y="${(p.y+fs/2-1).toFixed(1)}" text-anchor="middle" font-family="DM Mono,monospace" font-size="${fs}" font-weight="500" fill="#0a0a0a">${k}</text>
+    </g>`;
+  });
+  svg.innerHTML=html;
+}
+
+function placeNodes(n,cx,cy){
+  const radii=[140,160,120,150,135,125,155,145,138,162];
+  return Array.from({length:n},(_,i)=>{
+    const a=(2*Math.PI*i/n)-Math.PI/2, r=radii[i%radii.length];
+    return{x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)};
+  });
+}
+
+function openNode(k,idsStr){
+  const ents=idsStr.split(',').map(id=>entries.find(e=>String(e.id)===id)).filter(Boolean);
+  document.getElementById('kw-title').textContent=k;
+  document.getElementById('kw-sub').textContent=`${ents.length}번 기록됨`;
+  document.getElementById('kw-rows').innerHTML=ents.map(e=>`
+    <div class="panel-date-row" onclick="openDetail('${e.id}')">
+      <span class="panel-date-label">${e.date}</span>
+      <span class="panel-date-preview">${e.text.slice(0,44)}...</span>
+    </div>`).join('');
+  document.getElementById('kw-panel').classList.add('open');
+}
+
+function openCooc(a,b,idsStr){
+  const ents=idsStr.split(',').map(id=>entries.find(e=>String(e.id)===id)).filter(Boolean);
+  document.getElementById('kw-title').textContent=`${a}  ·  ${b}`;
+  document.getElementById('kw-sub').textContent=`함께 등장한 날 ${ents.length}번`;
+  document.getElementById('kw-rows').innerHTML=ents.map(e=>`
+    <div class="panel-date-row" onclick="openDetail('${e.id}')">
+      <span class="panel-date-label">${e.date}</span>
+      <span class="panel-date-preview">${e.text.slice(0,44)}...</span>
+    </div>`).join('');
+  document.getElementById('kw-panel').classList.add('open');
+}
+
+function openDetail(id){
+  const e=entries.find(e=>String(e.id)===String(id)); if(!e) return;
+  document.getElementById('d-date').textContent=e.date;
+  let body=e.text;
+  (e.keywords||[]).forEach(k=>{body=body.replace(new RegExp(k,'g'),`<mark>${k}</mark>`);});
+  document.getElementById('d-body').innerHTML=body;
+  document.getElementById('d-tags').innerHTML=(e.keywords||[]).map(k=>`<span class="detail-tag">${k}</span>`).join('');
+  document.getElementById('d-tag-hint').textContent=(e.keywords||[]).length?'키워드를 탭해서 수정할 수 있어요':'';
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function closePanel(id){ document.getElementById(id).classList.remove('open'); }
+function bgClose(e,id){ if(e.target===document.getElementById(id)) closePanel(id); }
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+// ── INIT ──
+updateDateLabel();
+renderEntries();
+
+window.openNode=openNode; window.openCooc=openCooc; window.openDetail=openDetail;
+window.pickDate=pickDate; window.moveMonth=moveMonth;
+
+// ── PWA ──
+if('serviceWorker' in navigator){
+  const sw=`
+    const CACHE='braindump-v1';
+    const FILES=[location.href];
+    self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES))));
+    self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));
+  `;
+  const blob=new Blob([sw],{type:'application/javascript'});
+  const url=URL.createObjectURL(blob);
+  navigator.serviceWorker.register(url).catch(()=>{});
+}
+
+// iOS 홈화면 추가 배너 (최초 1회)
+if(navigator.standalone===false && !localStorage.getItem('pwa-hint-shown')){
+  localStorage.setItem('pwa-hint-shown','1');
+  setTimeout(()=>{
+    showToast('홈화면에 추가하면 앱처럼 쓸 수 있어요');
+  }, 2000);
+}
+</script>
+</body>
+</html>
